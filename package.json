@@ -1,0 +1,14 @@
+{
+  "name": "chore-rotator",
+  "version": "1.0.0",
+  "description": "A Google Apps Script that automates weekly chore assignments for shared households",
+  "scripts": {
+    "test": "jest",
+    "push": "clasp push",
+    "pull": "clasp pull"
+  },
+  "devDependencies": {
+    "@google/clasp": "^3.3.0",
+    "jest": "^29.0.0"
+  }
+}
