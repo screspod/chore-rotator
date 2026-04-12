@@ -11,17 +11,19 @@ function onOpen() {
 }
 
 function onMenuRegenerateCalendarEvents() {
+   const promptMessage = "This will delete all existing calendar events and create new ones based on the current assignees. Are you sure you want to continue?";
+   if (!promptConfirmation(promptMessage)) return;
    const assigneeSvc = newAssigneeSheetService();
    const calendarSvc = newCalendarService(CONFIG.calendarId);
    regenerateCalendar(assigneeSvc, calendarSvc, CONFIG.eventTitle, CONFIG.eventDescription, CONFIG.weekStartDayIndex);
-   SpreadsheetApp.getUi().alert('Calendar regenerated.');
 }
 
 function onMenuClearCalendarEvents() {
+   const promptMessage = "This will delete all existing calendar events. Are you sure you want to continue?";
+   if (!promptConfirmation(promptMessage)) return;
    const assigneeSvc = newAssigneeSheetService();
    const calendarSvc = newCalendarService(CONFIG.calendarId);
    deleteAllEvents(assigneeSvc, calendarSvc, CONFIG.weekStartDayIndex);
-   SpreadsheetApp.getUi().alert('All calendar events deleted.');
 }
 
 function onMenuShowConfig() {
@@ -35,19 +37,22 @@ function onMenuShowConfig() {
       'Event Description:',
       CONFIG.eventDescription.replace(/\\n/g, '\n'),
    ].join('\n');
-   SpreadsheetApp.getUi().alert(message);
 }
 
 function TestOnMenuRegenerateCalendarEvents() {
    const assigneeSvc = newAssigneeSheetService();
    const calendarSvc = newCalendarService(CONFIG.testCalendarId);
    regenerateCalendar(assigneeSvc, calendarSvc, CONFIG.eventTitle, CONFIG.eventDescription, CONFIG.weekStartDayIndex);
-   SpreadsheetApp.getUi().alert('Calendar regenerated.');
 }
 
 function TestOnMenuClearCalendarEvents() {
    const assigneeSvc = newAssigneeSheetService();
    const calendarSvc = newCalendarService(CONFIG.testCalendarId);
    deleteAllEvents(assigneeSvc, calendarSvc, CONFIG.weekStartDayIndex);
-   SpreadsheetApp.getUi().alert('All calendar events deleted.');
+}
+
+function promptConfirmation(message) {
+   const ui = SpreadsheetApp.getUi();
+   const response = ui.alert(message, ui.ButtonSet.YES_NO);
+   return response === ui.Button.YES;
 }
