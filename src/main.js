@@ -16,7 +16,8 @@ function onMenuRegenerateCalendarEvents() {
    if (!promptConfirmation(promptMessage)) return;
    const assigneeSvc = newAssigneeSheetService();
    const calendarSvc = newCalendarService(CONFIG.calendarId);
-   regenerateCalendar(assigneeSvc, calendarSvc, CONFIG.eventTitle, CONFIG.eventDescription, CONFIG.weekStartDayIndex);
+   const emailSvc = newEmailService();
+   regenerateCalendar(assigneeSvc, calendarSvc, emailSvc, CONFIG.eventTitle, CONFIG.eventDescription, CONFIG.weekStartDayIndex);
 }
 
 function onMenuClearCalendarEvents() {
@@ -59,7 +60,8 @@ function promptConfirmation(message) {
 function TestOnMenuRegenerateCalendarEvents() {
    const assigneeSvc = newAssigneeSheetService();
    const calendarSvc = newCalendarService(CONFIG.testCalendarId);
-   regenerateCalendar(assigneeSvc, calendarSvc, CONFIG.eventTitle, CONFIG.eventDescription, CONFIG.weekStartDayIndex);
+   const emailSvc = newEmailService();
+   regenerateCalendar(assigneeSvc, calendarSvc, emailSvc, CONFIG.eventTitle, CONFIG.eventDescription, CONFIG.weekStartDayIndex);
 }
 
 function TestOnMenuClearCalendarEvents() {

@@ -33,10 +33,10 @@ function newCalendarService(calendarId) {
          return [];
       },
 
-      createRecurringSeries({ title, description, color, startDate, endDate, weeklyInterval }) {
+      createRecurringSeries({ title, description, guestEmail, color, startDate, endDate, weeklyInterval }) {
          const calendar = CalendarApp.getCalendarById(calendarId);
          const recurrence = CalendarApp.newRecurrence().addWeeklyRule().interval(weeklyInterval);
-         const series = calendar.createEventSeries(title, startDate, endDate, recurrence, { description });
+         const series = calendar.createEventSeries(title, startDate, endDate, recurrence, { description, ...(guestEmail && { guests: guestEmail }) });
          series.setColor(CalendarApp.EventColor[color]);
          return series.getId().split('@')[0];
       },

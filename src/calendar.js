@@ -3,7 +3,7 @@
 // the current assignee list, which would be complex and error-prone.
 // The window covers 2x the rotation length so findCurrentAssigneeIndex has
 // enough existing events to determine who is currently assigned.
-function regenerateCalendar(assigneesSheetSvc, calendarSvc, eventTitle, eventDescription, weekStartDayIndex) {
+function regenerateCalendar(assigneesSheetSvc, calendarSvc, emailSvc, eventTitle, eventDescription, weekStartDayIndex) {
    const assignees = assigneesSheetSvc.readAssignees();
    if (assignees.length === 0) return;
 
@@ -18,6 +18,8 @@ function regenerateCalendar(assigneesSheetSvc, calendarSvc, eventTitle, eventDes
       const offset = weekOffset(i, currentIndex, assignees.length);
       const startDate = assigneeStartDate(weekStart, offset);
       const endDate = weekEndDate(startDate);
+      // Skip inviting the owner — they created the events and don't need an invite.
+      const guestEmail = assignee.email && assignee.email !== emailSvc.getCurrentUserEmail() ? assignee.email : null;
       calendarSvc.createRecurringSeries({
          title: replacePlaceholders(eventTitle, { name: assignee.name }),
          description: replacePlaceholders(eventDescription, { name: assignee.name }).replace(/\\n/g, '\n'),
@@ -25,6 +27,7 @@ function regenerateCalendar(assigneesSheetSvc, calendarSvc, eventTitle, eventDes
          startDate,
          endDate,
          weeklyInterval: assignees.length,
+         guestEmail,
       });
    }
 }
@@ -39,6 +42,19 @@ function deleteAllEvents(assigneesSheetSvc, calendarSvc, weekStartDayIndex) {
    const windowEnd = assigneeStartDate(weekStart, assignees.length * 2);
    const events = calendarSvc.getEvents(weekStart, windowEnd);
    calendarSvc.batchDeleteSeries(extractSeriesIds(events));
+}
+
+// Shares the calendar with each assignee as a reader using their email address.
+// Assignees without an email are skipped — the sheet may have incomplete rows.
+// The calendar owner is also skipped — the ACL API rejects attempts to modify
+// your own access level.
+function shareCalendarWithAssignees(assigneesSheetSvc, calendarSvc, emailSvc) {
+   const assignees = assigneesSheetSvc.readAssignees();
+   for (const assignee of assignees) {
+      if (assignee.email && emailSvc.getCurrentUserEmail() !== assignee.email) {
+         calendarSvc.shareWithEmail(assignee.email);
+      }
+   }
 }
 
 // Determines which assignee is currently up by scanning existing calendar events.
@@ -131,19 +147,6 @@ function assigneeColor(name) {
 // so partial data never leaks placeholder syntax into calendar event text.
 function replacePlaceholders(template, data) {
    return template.replace(/{(\w+)}/g, (_, key) => data[key] || '');
-}
-
-// Shares the calendar with each assignee as a reader using their email address.
-// Assignees without an email are skipped — the sheet may have incomplete rows.
-// The calendar owner is also skipped — the ACL API rejects attempts to modify
-// your own access level.
-function shareCalendarWithAssignees(assigneesSheetSvc, calendarSvc, emailSvc) {
-   const assignees = assigneesSheetSvc.readAssignees();
-   for (const assignee of assignees) {
-      if (assignee.email && emailSvc.getCurrentUserEmail() !== assignee.email) {
-         calendarSvc.shareWithEmail(assignee.email);
-      }
-   }
 }
 
 if (typeof module !== 'undefined') {

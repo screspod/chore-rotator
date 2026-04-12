@@ -270,6 +270,7 @@ describe('deleteAllEvents', () => {
 describe('regenerateCalendar', () => {
    let assigneesSheetSvc;
    let calendarSvc;
+   let emailSvc;
 
    beforeEach(() => {
       jest.useFakeTimers();
@@ -279,6 +280,7 @@ describe('regenerateCalendar', () => {
          batchDeleteSeries: jest.fn(),
          createRecurringSeries: jest.fn(),
       };
+      emailSvc = { getCurrentUserEmail: jest.fn().mockReturnValue('owner@example.com') };
    });
 
    afterEach(() => {
@@ -287,47 +289,47 @@ describe('regenerateCalendar', () => {
 
    it('does nothing when assignee list is empty', () => {
       assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([]) };
-      regenerateCalendar(assigneesSheetSvc, calendarSvc, '{name} chore', '{name} desc', 1);
+      regenerateCalendar(assigneesSheetSvc, calendarSvc, emailSvc, '{name} chore', '{name} desc', 1);
       expect(calendarSvc.getEvents).not.toHaveBeenCalled();
       expect(calendarSvc.createRecurringSeries).not.toHaveBeenCalled();
    });
 
    it('creates one series per assignee', () => {
-      assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([{ name: 'Alice' }, { name: 'Bob' }]) };
-      regenerateCalendar(assigneesSheetSvc, calendarSvc, '{name} chore', '{name} desc', 1);
+      assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([{ name: 'Alice', email: 'alice@example.com' }, { name: 'Bob', email: 'bob@example.com' }]) };
+      regenerateCalendar(assigneesSheetSvc, calendarSvc, emailSvc, '{name} chore', '{name} desc', 1);
       expect(calendarSvc.createRecurringSeries).toHaveBeenCalledTimes(2);
    });
 
    it('deletes existing series before creating new ones', () => {
-      assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([{ name: 'Alice' }]) };
+      assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([{ name: 'Alice', email: 'alice@example.com' }]) };
       calendarSvc.getEvents.mockReturnValue([{ recurringEventId: 'old-series' }]);
       const callOrder = [];
       calendarSvc.batchDeleteSeries.mockImplementation(() => callOrder.push('delete'));
       calendarSvc.createRecurringSeries.mockImplementation(() => callOrder.push('create'));
-      regenerateCalendar(assigneesSheetSvc, calendarSvc, '{name} chore', '{name} desc', 1);
+      regenerateCalendar(assigneesSheetSvc, calendarSvc, emailSvc, '{name} chore', '{name} desc', 1);
       expect(callOrder).toEqual(['delete', 'create']);
    });
 
    it('sets weeklyInterval to the number of assignees', () => {
-      const assignees = [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Carol' }];
+      const assignees = [{ name: 'Alice', email: 'alice@example.com' }, { name: 'Bob', email: 'bob@example.com' }, { name: 'Carol', email: 'carol@example.com' }];
       assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue(assignees) };
-      regenerateCalendar(assigneesSheetSvc, calendarSvc, '{name}', '{name}', 1);
+      regenerateCalendar(assigneesSheetSvc, calendarSvc, emailSvc, '{name}', '{name}', 1);
       for (const call of calendarSvc.createRecurringSeries.mock.calls) {
          expect(call[0].weeklyInterval).toBe(3);
       }
    });
 
    it('substitutes assignee name into title and description', () => {
-      assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([{ name: 'Alice' }]) };
-      regenerateCalendar(assigneesSheetSvc, calendarSvc, '{name} chore', '{name} desc', 1);
+      assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([{ name: 'Alice', email: 'alice@example.com' }]) };
+      regenerateCalendar(assigneesSheetSvc, calendarSvc, emailSvc, '{name} chore', '{name} desc', 1);
       const args = calendarSvc.createRecurringSeries.mock.calls[0][0];
       expect(args.title).toBe('Alice chore');
       expect(args.description).toBe('Alice desc');
    });
 
    it('converts literal \\n in description to real newlines', () => {
-      assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([{ name: 'Alice' }]) };
-      regenerateCalendar(assigneesSheetSvc, calendarSvc, '{name}', 'line1\\nline2', 1);
+      assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([{ name: 'Alice', email: 'alice@example.com' }]) };
+      regenerateCalendar(assigneesSheetSvc, calendarSvc, emailSvc, '{name}', 'line1\\nline2', 1);
       const args = calendarSvc.createRecurringSeries.mock.calls[0][0];
       expect(args.description).toBe('line1\nline2');
    });
@@ -335,8 +337,8 @@ describe('regenerateCalendar', () => {
    it('assigns the first week to the current assignee when no existing events', () => {
       // No existing events → findCurrentAssigneeIndex falls back to 0 (Alice)
       // Alice offset=0 → startDate = Jan 15 (weekStart)
-      assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([{ name: 'Alice' }, { name: 'Bob' }]) };
-      regenerateCalendar(assigneesSheetSvc, calendarSvc, '{name}', '{name}', 1);
+      assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([{ name: 'Alice', email: 'alice@example.com' }, { name: 'Bob', email: 'bob@example.com' }]) };
+      regenerateCalendar(assigneesSheetSvc, calendarSvc, emailSvc, '{name}', '{name}', 1);
       const aliceCall = calendarSvc.createRecurringSeries.mock.calls[0][0];
       expect(aliceCall.title).toBe('Alice');
       expect(aliceCall.startDate.getDate()).toBe(15); // Jan 15
@@ -346,17 +348,53 @@ describe('regenerateCalendar', () => {
       // Bob is assigned this week → currentIndex=1
       // Alice offset = weekOffset(0,1,2) = 1 → Jan 22
       // Bob   offset = weekOffset(1,1,2) = 0 → Jan 15
-      const assignees = [{ name: 'Alice' }, { name: 'Bob' }];
+      const assignees = [{ name: 'Alice', email: 'alice@example.com' }, { name: 'Bob', email: 'bob@example.com' }];
       assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue(assignees) };
       calendarSvc.getEvents.mockReturnValue([
          { summary: 'Bob chore', start: { date: '2024-01-15' } },
       ]);
-      regenerateCalendar(assigneesSheetSvc, calendarSvc, '{name} chore', '{name}', 1);
+      regenerateCalendar(assigneesSheetSvc, calendarSvc, emailSvc, '{name} chore', '{name}', 1);
       const calls = calendarSvc.createRecurringSeries.mock.calls;
       const aliceCall = calls.find(c => c[0].title === 'Alice chore')[0];
       const bobCall = calls.find(c => c[0].title === 'Bob chore')[0];
       expect(bobCall.startDate.getDate()).toBe(15);  // Bob starts Jan 15 (current week)
       expect(aliceCall.startDate.getDate()).toBe(22); // Alice starts Jan 22 (next week)
+   });
+
+   it('passes assignee email as guestEmail', () => {
+      assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([{ name: 'Alice', email: 'alice@example.com' }]) };
+      regenerateCalendar(assigneesSheetSvc, calendarSvc, emailSvc, '{name}', '{name}', 1);
+      const args = calendarSvc.createRecurringSeries.mock.calls[0][0];
+      expect(args.guestEmail).toBe('alice@example.com');
+   });
+
+   it('passes null guestEmail for the calendar owner', () => {
+      assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([{ name: 'Owner', email: 'owner@example.com' }]) };
+      regenerateCalendar(assigneesSheetSvc, calendarSvc, emailSvc, '{name}', '{name}', 1);
+      const args = calendarSvc.createRecurringSeries.mock.calls[0][0];
+      expect(args.guestEmail).toBeNull();
+   });
+
+   it('passes null guestEmail when assignee has no email', () => {
+      assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([{ name: 'Alice', email: '' }]) };
+      regenerateCalendar(assigneesSheetSvc, calendarSvc, emailSvc, '{name}', '{name}', 1);
+      const args = calendarSvc.createRecurringSeries.mock.calls[0][0];
+      expect(args.guestEmail).toBeNull();
+   });
+
+   it('passes correct guestEmail for each assignee in a mixed list', () => {
+      assigneesSheetSvc = {
+         readAssignees: jest.fn().mockReturnValue([
+            { name: 'Alice', email: 'alice@example.com' },
+            { name: 'Owner', email: 'owner@example.com' },
+            { name: 'Bob', email: '' },
+         ]),
+      };
+      regenerateCalendar(assigneesSheetSvc, calendarSvc, emailSvc, '{name}', '{name}', 1);
+      const calls = calendarSvc.createRecurringSeries.mock.calls;
+      expect(calls[0][0].guestEmail).toBe('alice@example.com');
+      expect(calls[1][0].guestEmail).toBeNull();
+      expect(calls[2][0].guestEmail).toBeNull();
    });
 });
 
