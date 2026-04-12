@@ -133,6 +133,19 @@ function replacePlaceholders(template, data) {
    return template.replace(/{(\w+)}/g, (_, key) => data[key] || '');
 }
 
+// Shares the calendar with each assignee as a reader using their email address.
+// Assignees without an email are skipped — the sheet may have incomplete rows.
+// The calendar owner is also skipped — the ACL API rejects attempts to modify
+// your own access level.
+function shareCalendarWithAssignees(assigneesSheetSvc, calendarSvc, emailSvc) {
+   const assignees = assigneesSheetSvc.readAssignees();
+   for (const assignee of assignees) {
+      if (assignee.email && emailSvc.getCurrentUserEmail() !== assignee.email) {
+         calendarSvc.shareWithEmail(assignee.email);
+      }
+   }
+}
+
 if (typeof module !== 'undefined') {
    module.exports = {
       regenerateCalendar,
@@ -143,5 +156,6 @@ if (typeof module !== 'undefined') {
       replacePlaceholders,
       currentWeekStartDate,
       findCurrentAssigneeIndex,
+      shareCalendarWithAssignees,
    };
 }

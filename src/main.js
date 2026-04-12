@@ -6,6 +6,7 @@ function onOpen() {
       .addSeparator()
       .addItem("Regenerate Calendar Events", "onMenuRegenerateCalendarEvents")
       .addItem("Clear Calendar Events", "onMenuClearCalendarEvents")
+      .addItem("Share Calendar with Assignees", "onMenuShareCalendarWithAssignees")
       .addItem("Show Config", "onMenuShowConfig")
       .addToUi();
 }
@@ -37,6 +38,22 @@ function onMenuShowConfig() {
       'Event Description:',
       CONFIG.eventDescription.replace(/\\n/g, '\n'),
    ].join('\n');
+   SpreadsheetApp.getUi().alert(message);
+}
+
+function onMenuShareCalendarWithAssignees() {
+   promptMessage = "This will share the calendar with all assignees as readers. Are you sure you want to continue?";
+   if (!promptConfirmation(promptMessage)) return;
+   const assigneeSvc = newAssigneeSheetService();
+   const calendarSvc = newCalendarService(CONFIG.calendarId);
+   const emailSvc = newEmailService();
+   shareCalendarWithAssignees(assigneeSvc, calendarSvc, emailSvc);
+}
+
+function promptConfirmation(message) {
+   const ui = SpreadsheetApp.getUi();
+   const response = ui.alert(message, ui.ButtonSet.YES_NO);
+   return response === ui.Button.YES;
 }
 
 function TestOnMenuRegenerateCalendarEvents() {
@@ -49,10 +66,4 @@ function TestOnMenuClearCalendarEvents() {
    const assigneeSvc = newAssigneeSheetService();
    const calendarSvc = newCalendarService(CONFIG.testCalendarId);
    deleteAllEvents(assigneeSvc, calendarSvc, CONFIG.weekStartDayIndex);
-}
-
-function promptConfirmation(message) {
-   const ui = SpreadsheetApp.getUi();
-   const response = ui.alert(message, ui.ButtonSet.YES_NO);
-   return response === ui.Button.YES;
 }

@@ -7,6 +7,7 @@ const {
    replacePlaceholders,
    currentWeekStartDate,
    findCurrentAssigneeIndex,
+   shareCalendarWithAssignees,
 } = require('../src/calendar');
 
 const VALID_COLORS = ['RED', 'YELLOW', 'CYAN', 'ORANGE', 'MAUVE', 'GRAY', 'PALE_BLUE', 'PALE_GREEN', 'PALE_RED', 'BLUE', 'GREEN'];
@@ -356,5 +357,61 @@ describe('regenerateCalendar', () => {
       const bobCall = calls.find(c => c[0].title === 'Bob chore')[0];
       expect(bobCall.startDate.getDate()).toBe(15);  // Bob starts Jan 15 (current week)
       expect(aliceCall.startDate.getDate()).toBe(22); // Alice starts Jan 22 (next week)
+   });
+});
+
+describe('shareCalendarWithAssignees', () => {
+   let assigneesSheetSvc;
+   let calendarSvc;
+   let emailSvc;
+
+   beforeEach(() => {
+      calendarSvc = { shareWithEmail: jest.fn() };
+      emailSvc = { getCurrentUserEmail: jest.fn().mockReturnValue('owner@example.com') };
+   });
+
+   it('shares with each assignee that has an email', () => {
+      assigneesSheetSvc = {
+         readAssignees: jest.fn().mockReturnValue([
+            { name: 'Alice', email: 'alice@example.com' },
+            { name: 'Bob', email: 'bob@example.com' },
+         ]),
+      };
+      shareCalendarWithAssignees(assigneesSheetSvc, calendarSvc, emailSvc);
+      expect(calendarSvc.shareWithEmail).toHaveBeenCalledTimes(2);
+      expect(calendarSvc.shareWithEmail).toHaveBeenCalledWith('alice@example.com');
+      expect(calendarSvc.shareWithEmail).toHaveBeenCalledWith('bob@example.com');
+   });
+
+   it('does nothing when assignee list is empty', () => {
+      assigneesSheetSvc = { readAssignees: jest.fn().mockReturnValue([]) };
+      shareCalendarWithAssignees(assigneesSheetSvc, calendarSvc, emailSvc);
+      expect(calendarSvc.shareWithEmail).not.toHaveBeenCalled();
+   });
+
+   it('skips assignees without an email', () => {
+      assigneesSheetSvc = {
+         readAssignees: jest.fn().mockReturnValue([
+            { name: 'Alice', email: 'alice@example.com' },
+            { name: 'Bob', email: '' },
+            { name: 'Carol', email: null },
+         ]),
+      };
+      shareCalendarWithAssignees(assigneesSheetSvc, calendarSvc, emailSvc);
+      expect(calendarSvc.shareWithEmail).toHaveBeenCalledTimes(1);
+      expect(calendarSvc.shareWithEmail).toHaveBeenCalledWith('alice@example.com');
+   });
+
+   it('skips the calendar owner to avoid ACL self-modification error', () => {
+      assigneesSheetSvc = {
+         readAssignees: jest.fn().mockReturnValue([
+            { name: 'Alice', email: 'alice@example.com' },
+            { name: 'Owner', email: 'owner@example.com' },
+         ]),
+      };
+      shareCalendarWithAssignees(assigneesSheetSvc, calendarSvc, emailSvc);
+      expect(calendarSvc.shareWithEmail).toHaveBeenCalledTimes(1);
+      expect(calendarSvc.shareWithEmail).toHaveBeenCalledWith('alice@example.com');
+      expect(calendarSvc.shareWithEmail).not.toHaveBeenCalledWith('owner@example.com');
    });
 });

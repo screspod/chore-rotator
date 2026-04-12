@@ -29,7 +29,7 @@ function newCalendarService(calendarId) {
                singleEvents: true,
                orderBy: 'startTime',
             }).items || [];
-         } catch (e) {}
+         } catch (e) { }
          return [];
       },
 
@@ -50,6 +50,21 @@ function newCalendarService(calendarId) {
                if (e.details && e.details.code !== 404 && e.details.code !== 410) throw e;
             }
          }
+      },
+
+      shareWithEmail(email) {
+         Calendar.Acl.insert({
+            role: 'reader',
+            scope: { type: 'user', value: email },
+         }, calendarId);
       }
    };
 }
+
+function newEmailService() {
+   return {
+      getCurrentUserEmail() {
+         return Session.getActiveUser().getEmail();
+      },
+   };
+}   
